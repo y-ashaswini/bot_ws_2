@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<launch>
+
+	<!-- launching the world + robot -->
+    <include file="$(find fourbot)/launch/movebase_robot.launch"/>
+
+	<!-- launching amcl -->
+	<include file="$(find fourbot)/launch/movebase_amcl.launch"/>
+
+	<!-- gmapping - to create the map -->
+	<include file="$(find fourbot)/launch/movebase_gmapping.launch"/>
+	<!-- specifying args (based on robot, its topics) -->
+    
+    <arg name="cmd_vel_topic" default="fourbot/cmd_vel"/>
+	<arg name="odom_frame_id"   default="odom"/>
+	<arg name="base_frame_id"   default="robot_footprint"/>
+	<arg name="global_frame_id" default="map"/>
+	<arg name="odom_topic" default="odom" />
+	<arg name="laser_topic" default="scan" />
+
+	<!-- the movebase node -->
+	<node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+
+		<rosparam file="$(find fourbot)/config_save/costmap_common_params.yaml" command="load" ns="global_costmap" />
+		<rosparam file="$(find fourbot)/config_save/costmap_common_params.yaml" command="load" ns="local_costmap" />
+		<rosparam file="$(find fourbot)/config_save/local_costmap_params.yaml" command="load" />
+		<rosparam file="$(find fourbot)/config_save/global_costmap_params.yaml" command="load" />
+	
+		<!-- dwa local params -->
+		<rosparam file="$(find fourbot)/config_save/dwa_local_params.yaml" command="load" />
+		<!-- movebase params -->
+		<rosparam file="$(find fourbot)/config_save/move_base_params.yaml" command="load" />
+		<!-- global planner params -->
+		<rosparam file="$(find fourbot)/config_save/global_planner_params.yaml" command="load" />
+		<!-- navfn global planner params -->
+		<rosparam file="$(find fourbot)/config_save/navfn_global_planner_params.yaml" command="load" />
+	
+		<!-- publishing map params -->
+		<param name="global_costmap/global_frame" value="$(arg global_frame_id)"/>
+		<param name="global_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+		<param name="local_costmap/global_frame" value="$(arg odom_frame_id)"/>
+		<param name="local_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+		<param name="DWAPlannerROS/global_frame_id" value="$(arg odom_frame_id)"/>
+	
+		<remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+		<remap from="odom" to="$(arg odom_topic)"/>
+		<remap from="scan" to="$(arg laser_topic)"/>
+	
+	</node>
+
+</launch>

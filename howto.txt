@@ -1,0 +1,770 @@
+# create package
+
+> directory_name
+>> src
+>>> package_name
+
+# write command + list dependenies
+catkin_create_pkg std_msgs roscpp
+
+# edit package.xml, CMakeLists.txt
+
+> package_name
+>> src
+>>> file_one.cpp
+>>> file_two.cpp
+>> msgs
+>>> message_name.msg
+
+----------------------------------------------------------------
+
+# Run robot with presaved configurations in rviz and gazebo
+
+source /devel/setup.bash
+roscore
+
+roslauch fourbot world.launch
+# launches both rviz and gaezbo (how to reopen saved rviz config)
+
+rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/fourbot/cmd_vel
+# control on robot movement on gazebo
+
+
+# Topics published 
+
+MISC
+/clicked_point
+/clock
+
+CAMERA
+/fourbot/camera/parameter_descriptions
+/fourbot/camera/parameter_updates
+/fourbot/camera/rgb/camera_info
+/fourbot/camera/rgb/image_raw
+/fourbot/camera/rgb/image_raw/compressed
+/fourbot/camera/rgb/image_raw/compressed/parameter_descriptions
+/fourbot/camera/rgb/image_raw/compressed/parameter_updates
+/fourbot/camera/rgb/image_raw/compressedDepth
+/fourbot/camera/rgb/image_raw/compressedDepth/parameter_descriptions
+/fourbot/camera/rgb/image_raw/compressedDepth/parameter_updates
+/fourbot/camera/rgb/image_raw/theora
+/fourbot/camera/rgb/image_raw/theora/parameter_descriptions
+/fourbot/camera/rgb/image_raw/theora/parameter_updates
+
+GAZEBO
+/gazebo/link_states
+/gazebo/model_states
+/gazebo/parameter_descriptions
+/gazebo/parameter_updates
+/gazebo/performance_metrics
+/gazebo/set_link_state
+/gazebo/set_model_state
+
+ODOM
+/fourbot/cmd_vel
+/fourbot/odom
+/initialpose
+/joint_states
+/move_base_simple/goal
+/imu ------------------
+
+/rosout
+/rosout_agg
+/tf
+/tf_static
+
+
+
+
+roslaunch vision color_detection_publisher.launch
+rostopic list (you'll see webcam)
+rostopic info /webcam (you'll see Image type, etc.)
+rqt_image_view (switch to topic /webcam)
+
+
+
+To add a plugin:
+1) Add plugin code to packagename.gazebo within the <gazebo></gazebo> tags 
+2) add link + joint to packagename.xacro [include it in the structure]
+
+After adding depth sensor, topics published:
+
+/depthcam/color/camera_info
+/depthcam/color/image_raw ------------------
+/depthcam/color/image_raw/compressed
+/depthcam/color/image_raw/compressed/parameter_descriptions
+/depthcam/color/image_raw/compressed/parameter_updates
+/depthcam/color/image_raw/compressedDepth
+/depthcam/color/image_raw/compressedDepth/parameter_descriptions
+/depthcam/color/image_raw/compressedDepth/parameter_updates
+/depthcam/color/image_raw/theora
+/depthcam/color/image_raw/theora/parameter_descriptions
+/depthcam/color/image_raw/theora/parameter_updates
+/depthcam/depth/camera_info
+/depthcam/depth/image_raw
+/depthcam/depth/points ------------------
+/depthcam_ir/depth/camera_info
+/depthcam_ir/parameter_descriptions
+/depthcam_ir/parameter_updates
+
+
+SCRIPTS TO RUN FOR TRAVERSAL
+
+>>> roslaunch fourbot rviz_gazebo.launch
+>>> rosrun vision depth_node.py (depthcam/color/distance_opencv -- publishes distance from center of camera frame )
+>>> rosrun vision fake_arrow.py -- detects arrow and publishes direction (hard coded currently)
+>>> rosrun fourbot movement_depth.py -- moves forward, turns anticlockwise 30 deg (default) if distance < 1.8 units
+
+
+
+ODOM
+/fourbot/odom
+/fourbot/imu
+/fourbot/gps
+
+Sample Data >
+
+header: 
+  seq: 21549
+  stamp: 
+    secs: 2240
+    nsecs: 575000000
+  frame_id: "odom"
+child_frame_id: "robot_footprint"
+pose: 
+  pose: 
+    position: 
+      x: -3.603781907032657
+      y: -8.712173282306216
+      z: 0.0
+    orientation: 
+      x: -3.9998267267744516e-07
+      y: 1.0721680793585594e-08
+      z: 0.9798848351509343
+      w: 0.1995637989242201
+  covariance: [0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000000000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000000000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000000000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+twist: 
+  twist: 
+    linear: 
+      x: -2.2812691466686442e-08
+      y: 4.320901034244061e-11
+      z: 0.0
+    angular: 
+      x: 0.0
+      y: 0.0
+      z: -1.972875243643067e-11
+  covariance: [0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000000000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000000000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1000000000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+
+
+----------------------------------------------------------------
+
+https://prabhjotkaurgosal.com/a-guide-to-implementing-ros-navigation-stack-on-your-robot/4/
+
+GMAPPING (creating and saving a map)
+
+> roslaunch fourbot temp.launch
+> roslaunch fourbot gmapping_launch.launch (maps, save map)
+> rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/fourbot/cmd_vel
+[go around the place, map it out, save, relaunch world, launch amcl node (haven't created one here yet), travel, etc.]
+
+
+RUNNING WITH MAP + AMCL NODE 
+
+> roslaunch fourbot temp.launch
+> roslaunch fourbot temp_amcl_map.launch (will launch amc node, so go to rviz and select /pointcloud)
+> (go to directory) ./init_pose_estimate.launch (for estimating pose without interacting directly with rviz)
+> rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/fourbot/cmd_vel (to go around a little bit and let it do the localisation by itself)
+
+
+PATH PLANNING - MOVEBASE
+
+http://wiki.ros.org/global_planner?distro=noetic
+
+
+- firstly, costmaps have to be initialized.
+- this can be done either by providing the static map from map_server node or by providing a fixed width and height of the region
+- global planner: creating long-term plans over the entire environment
+- local planner: creates short term plans, taking into account the obstacle information in the environment
+- for via map (and without map?), must use with amcl_node to give it info about obstacles
+- the navigation stack uses information from sensors to avoid obstacles in the world, it assumes that these sensors are publishing either sensor_msgs/LaserScan or sensor_msgs/PointCloud messages over ROS
+
+
+- set parameters for move_base node in yaml files
+- separate costmap params for local and global, and 1 with params common to both
+
+
+> roslaunch fourbot temp.launch (gazebo + rviz)
+> roslaunch fourbot temp_trav_combined.launch (map server + amcl, movebase) --- WHEN NO MAP
+
+move base topics:
+
+/move_base/NavfnROS/plan
+/move_base/TrajectoryPlannerROS/cost_cloud
+/move_base/TrajectoryPlannerROS/global_plan
+/move_base/TrajectoryPlannerROS/local_plan
+/move_base/TrajectoryPlannerROS/parameter_descriptions
+/move_base/TrajectoryPlannerROS/parameter_updates
+/move_base/cancel
+/move_base/current_goal
+/move_base/feedback
+/move_base/global_costmap/costmap
+/move_base/global_costmap/costmap_updates
+/move_base/global_costmap/footprint
+/move_base/global_costmap/inflation_layer/parameter_descriptions
+/move_base/global_costmap/inflation_layer/parameter_updates
+/move_base/global_costmap/obstacle_layer/parameter_descriptions
+/move_base/global_costmap/obstacle_layer/parameter_updates
+/move_base/global_costmap/parameter_descriptions
+/move_base/global_costmap/parameter_updates
+/move_base/global_costmap/static_layer/parameter_descriptions
+/move_base/global_costmap/static_layer/parameter_updates
+/move_base/goal
+/move_base/local_costmap/costmap
+/move_base/local_costmap/costmap_updates
+/move_base/local_costmap/footprint
+/move_base/local_costmap/inflation_layer/parameter_descriptions
+/move_base/local_costmap/inflation_layer/parameter_updates
+/move_base/local_costmap/obstacle_layer/parameter_descriptions
+/move_base/local_costmap/obstacle_layer/parameter_updates
+/move_base/local_costmap/parameter_descriptions
+/move_base/local_costmap/parameter_updates
+/move_base/parameter_descriptions
+/move_base/parameter_updates
+/move_base/recovery_status
+/move_base/result
+/move_base/status
+/move_base_simple/goal
+
+
+this is WITH A MAP CURRENTLY. need to do one without a map.
+
+----------------------------------------------------------------
+
+WITHOUT A MAP - DONE
+
+- fourbot
+- gmapping
+- amcl  
+- movebase
+
+> roslaunch fourbot movebase_combined.launch
+only works when you run that script that publishes move_base goals too - uses dwa, dijkstra, and works! WEEE.
+> cd onbot_ws/src/simple_navigation_goals/src
+> ./simple_navigation_goals.py (made a script launch.launch but cannot see logs for some reason idk why)
+NOTE:(Added by Rishit:))
+  rosrun echo fourbot/cmd_vel
+  linear y,z and angular x,y do not change, remain 0.0. No matter how the rover traverses, change is only in linear x and angular z
+----------------------------------------------------------------
+
+TODO
+
+* recovery behavior - move to last safe position (how?)
+* keep moving forward (or wherever optimal position) until goal reached - custom script - in progress
+* add depthcam (simulate intel realsense)
+* integrate arrow detection algorithm into it
+* make a document on how to do all this on a real bot
+  (
+    > how to communicate with wheel encoders?
+    > gps and imu - kalman filter - implementation?
+    > realsense drivers?
+    > without simulation, how control, observe?
+    > also, how to send data from ros to the gcs website?
+  )
+
+
+realsense d435 ros plugin:
+https://github.com/pal-robotics/realsense_gazebo_plugin - plugin usage(?) on github
+http://wiki.ros.org/realsense2_camera - roswiki page
+https://github.com/IntelRealSense/realsense-ros/tree/ros1-legacy - installation instructions (for ros 1)
+
+----------------------------------------------------------------
+
+https://github.com/MarkNaeem/move_base_sequence/blob/main/src/server.py
+
+----------------------------------------------------------------
+
+REALSENSE CAMERA TOPICS PUBLISHED
+
+/camera/color/camera_info
+/camera/color/image_raw
+/camera/color/image_raw/compressed
+/camera/color/image_raw/compressed/parameter_descriptions
+/camera/color/image_raw/compressed/parameter_updates
+/camera/color/image_raw/compressedDepth
+/camera/color/image_raw/compressedDepth/parameter_descriptions
+/camera/color/image_raw/compressedDepth/parameter_updates
+/camera/color/image_raw/theora
+/camera/color/image_raw/theora/parameter_descriptions
+/camera/color/image_raw/theora/parameter_updates
+/camera/color/metadata
+
+/camera/depth/camera_info
+/camera/depth/color/points
+/camera/depth/image_rect_raw
+/camera/depth/image_rect_raw/compressed
+/camera/depth/image_rect_raw/compressed/parameter_descriptions
+/camera/depth/image_rect_raw/compressed/parameter_updates
+/camera/depth/image_rect_raw/compressedDepth
+/camera/depth/image_rect_raw/compressedDepth/parameter_descriptions
+/camera/depth/image_rect_raw/compressedDepth/parameter_updates
+/camera/depth/image_rect_raw/theora
+/camera/depth/image_rect_raw/theora/parameter_descriptions
+/camera/depth/image_rect_raw/theora/parameter_updates
+/camera/depth/metadata
+
+/camera/extrinsics/depth_to_color
+
+/camera/motion_module/parameter_descriptions
+/camera/motion_module/parameter_updates
+
+/camera/pointcloud/parameter_descriptions
+/camera/pointcloud/parameter_updates
+
+/camera/realsense2_camera_manager/bond
+
+/camera/rgb_camera/auto_exposure_roi/parameter_descriptions
+/camera/rgb_camera/auto_exposure_roi/parameter_updates
+/camera/rgb_camera/parameter_descriptions
+/camera/rgb_camera/parameter_updates
+
+/camera/stereo_module/auto_exposure_roi/parameter_descriptions
+/camera/stereo_module/auto_exposure_roi/parameter_updates
+/camera/stereo_module/parameter_descriptions
+/camera/stereo_module/parameter_updates
+
+----------------------------------------------------------------
+
+running the rviz in custom package depthcam
+> roslaunch depthcam pc.launch 
+
+running rtmbap mapping = for 3d mapping
+https://answers.ros.org/question/240378/building-a-3d-and-2d-map-with-realsense-and-rtabmap/
+
+rtabmap is subscribed to
+
+/rtabmap/odom
+/camera/rgb/image_rect_color
+/camera/depth/image_rect_raw    should be /camera/depth/image_rect_raw
+/camera/rgb/camera_info         should be /camera/color/camera_info
+/rtabmap/odom_info
+
+> roslaunch rtabmap_ros rtabmap.launch depth_topic:=/camera/depth_registered/sw_registered/image_rect_raw
+// depth_topic is instead /camera/depth/image_rect_raw
+// /camera/depth/image_rect_raw
+<remap from="scan" to="$(arg scan_topic)"/> 
+ enable_color:=true
+
+
+
+
+
+NOT WORKING :
+
+> roslaunch rtabmap_ros rtabmap.launch depth_topic:=/camera/depth_registered/sw_registered/image_rect_raw
+// depth_topic is instead /camera/depth/image_rect_raw
+// /camera/depth/image_rect_raw
+<remap from="scan" to="$(arg scan_topic)"/> 
+ enable_color:=true
+
+
+https://github.com/chrissunny94/t265_robot_navigation
+rs-enumerate-devices
+/sys/devices/pci0000:00/0000:00:14.0/usb2/2-1/2-1:1.0/video4linux/video2
+serial number: 213622251532
+
+
+----------------------------------------------------------------
+
+> roslaunch fourbot occupancy_live_rviz.launch : launches realsense, converts depth to laser - for obstacle avoidance
+do:
+  occupancy grid
+  connect with movebase
+  save map 
+
+TOPICS
+
+/d400/align_to_color/parameter_descriptions
+/d400/align_to_color/parameter_updates
+/d400/aligned_depth_to_color/camera_info
+/d400/aligned_depth_to_color/image_raw
+/d400/aligned_depth_to_color/image_raw/compressed
+/d400/aligned_depth_to_color/image_raw/compressed/parameter_descriptions
+/d400/aligned_depth_to_color/image_raw/compressed/parameter_updates
+/d400/aligned_depth_to_color/image_raw/compressedDepth
+/d400/aligned_depth_to_color/image_raw/compressedDepth/parameter_descriptions
+/d400/aligned_depth_to_color/image_raw/compressedDepth/parameter_updates
+/d400/aligned_depth_to_color/image_raw/theora
+/d400/aligned_depth_to_color/image_raw/theora/parameter_descriptions
+/d400/aligned_depth_to_color/image_raw/theora/parameter_updates
+
+/d400/color/camera_info
+/d400/color/image_raw
+/d400/color/image_raw/compressed
+/d400/color/image_raw/compressed/parameter_descriptions
+/d400/color/image_raw/compressed/parameter_updates
+/d400/color/image_raw/compressedDepth
+/d400/color/image_raw/compressedDepth/parameter_descriptions
+/d400/color/image_raw/compressedDepth/parameter_updates
+/d400/color/image_raw/theora
+/d400/color/image_raw/theora/parameter_descriptions
+/d400/color/image_raw/theora/parameter_updates
+/d400/color/metadata
+
+/d400/depth/camera_info
+/d400/depth/color/points
+/d400/depth/image_rect_raw
+/d400/depth/image_rect_raw/compressed
+/d400/depth/image_rect_raw/compressed/parameter_descriptions
+/d400/depth/image_rect_raw/compressed/parameter_updates
+/d400/depth/image_rect_raw/compressedDepth
+/d400/depth/image_rect_raw/compressedDepth/parameter_descriptions
+/d400/depth/image_rect_raw/compressedDepth/parameter_updates
+/d400/depth/image_rect_raw/theora
+/d400/depth/image_rect_raw/theora/parameter_descriptions
+/d400/depth/image_rect_raw/theora/parameter_updates
+/d400/depth/metadata
+
+/d400/extrinsics/depth_to_color
+
+/d400/motion_module/parameter_descriptions
+/d400/motion_module/parameter_updates
+
+/d400/pointcloud/parameter_descriptions
+/d400/pointcloud/parameter_updates
+
+/d400/realsense2_camera_manager/bond
+
+/d400/rgb_camera/auto_exposure_roi/parameter_descriptions
+/d400/rgb_camera/auto_exposure_roi/parameter_updates
+/d400/rgb_camera/parameter_descriptions
+/d400/rgb_camera/parameter_updates
+
+/d400/stereo_module/auto_exposure_roi/parameter_descriptions
+/d400/stereo_module/auto_exposure_roi/parameter_updates
+/d400/stereo_module/parameter_descriptions
+/d400/stereo_module/parameter_updates
+
+/depthimage_to_laserscan/parameter_descriptions
+/depthimage_to_laserscan/parameter_updates
+
+/initialpose
+/move_base_simple/goal
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+SLAM WITH THE REALSENSE: 3D NOT 2D ANYMORE
+
+> sudo apt-get install ros-noetic-octomap-rviz-plugins
+> install rtabmap for noetic also 
+https://github.com/IntelRealSense/realsense-ros/wiki/SLAM-with-D435i
+
+> roslaunch realsense2_camera opensource_tracking.launch
+> enable map point PointCloud
+
+to save map (2D):
+> rosrun map_server map_saver map:=/rtabmap/proj_map –f my_map_1
+
+my_map_1 is the name of the map, everything else remains the Sample
+
+to save point PointCloud map (3D)
+> rosrun pcl_ros pointcloud_to_pcd input:=/rtabmap/cloud_map
+
+[the most beautiful paper i've read in a while: https://www.utupub.fi/bitstream/handle/10024/147661/VSLAM_and_Navigation_System_of_Unmanned_Ground_Vehicle_Based_on_RGB-D_Camera.pdf]
+
+// need to replace /map with output from rtabmap: /rtabmap/grid_map
+// no need of amcl for localisation (? ekf)
+// no need of getting the map from map, get OCCUPANCY GRID instead
+// goes NOT to map server, but to rtabmap -- CLOSED LOOP IMPLEMENTATION - backend and frontend LOOPED, constant feedback and correction
+// ^ + odometery data -- goes to global costmap
+// internal: obstacle avoidance, same as earlier no change
+
+topics published by the realsense+rtabmap launch file:
+
+/ImuFilter/parameter_descriptions
+/ImuFilter/parameter_updates
+
+/camera/align_to_color/parameter_descriptions
+/camera/align_to_color/parameter_updates
+/camera/aligned_depth_to_color/camera_info
+/camera/aligned_depth_to_color/image_raw
+/camera/aligned_depth_to_color/image_raw/compressed
+/camera/aligned_depth_to_color/image_raw/compressed/parameter_descriptions
+/camera/aligned_depth_to_color/image_raw/compressed/parameter_updates
+/camera/aligned_depth_to_color/image_raw/compressedDepth
+/camera/aligned_depth_to_color/image_raw/compressedDepth/parameter_descriptions
+/camera/aligned_depth_to_color/image_raw/compressedDepth/parameter_updates
+/camera/aligned_depth_to_color/image_raw/theora
+/camera/aligned_depth_to_color/image_raw/theora/parameter_descriptions
+/camera/aligned_depth_to_color/image_raw/theora/parameter_updates
+/camera/color/camera_info
+/camera/color/image_raw
+/camera/color/image_raw/compressed
+/camera/color/image_raw/compressed/parameter_descriptions
+/camera/color/image_raw/compressed/parameter_updates
+/camera/color/image_raw/compressedDepth
+/camera/color/image_raw/compressedDepth/parameter_descriptions
+/camera/color/image_raw/compressedDepth/parameter_updates
+/camera/color/image_raw/theora
+/camera/color/image_raw/theora/parameter_descriptions
+/camera/color/image_raw/theora/parameter_updates
+/camera/color/metadata
+/camera/depth/camera_info
+/camera/depth/image_rect_raw
+/camera/depth/image_rect_raw/compressed
+/camera/depth/image_rect_raw/compressed/parameter_descriptions
+/camera/depth/image_rect_raw/compressed/parameter_updates
+/camera/depth/image_rect_raw/compressedDepth
+/camera/depth/image_rect_raw/compressedDepth/parameter_descriptions
+/camera/depth/image_rect_raw/compressedDepth/parameter_updates
+/camera/depth/image_rect_raw/theora
+/camera/depth/image_rect_raw/theora/parameter_descriptions
+/camera/depth/image_rect_raw/theora/parameter_updates
+/camera/depth/metadata
+/camera/depth_registered/camera_info
+/camera/depth_registered/image
+/camera/extrinsics/depth_to_color
+/camera/imu
+/camera/motion_module/parameter_descriptions
+/camera/motion_module/parameter_updates
+/camera/realsense2_camera_manager/bond
+/camera/rgb/image_rect_color
+/camera/rgb_camera/auto_exposure_roi/parameter_descriptions
+/camera/rgb_camera/auto_exposure_roi/parameter_updates
+/camera/rgb_camera/parameter_descriptions
+/camera/rgb_camera/parameter_updates
+/camera/stereo_module/auto_exposure_roi/parameter_descriptions
+/camera/stereo_module/auto_exposure_roi/parameter_updates
+/camera/stereo_module/parameter_descriptions
+/camera/stereo_module/parameter_updates
+
+/diagnostics
+/disparity
+/example/another_odom
+/example/pose
+/example/twist
+
+/gps/fix
+/imu/data
+/initialpose
+/left/camera_info
+/left/image
+
+/move_base_simple/goal
+
+/odometry/filtered
+/rgbd_image_relay
+/right/camera_info
+/right/image
+/rosout
+/rosout_agg
+
+/rtabmap/cloud_ground
+/rtabmap/cloud_map
+/rtabmap/cloud_obstacles
+/rtabmap/global_path
+/rtabmap/global_path_nodes
+/rtabmap/global_pose
+/rtabmap/goal
+/rtabmap/goal_node
+/rtabmap/goal_out
+/rtabmap/goal_reached
+/rtabmap/grid_map
+/rtabmap/grid_prob_map
+/rtabmap/info
+/rtabmap/initialpose
+/rtabmap/labels
+/rtabmap/landmarks
+/rtabmap/local_grid_empty
+/rtabmap/local_grid_ground
+/rtabmap/local_grid_obstacle
+/rtabmap/local_path
+/rtabmap/local_path_nodes
+/rtabmap/localization_pose
+/rtabmap/mapData
+/rtabmap/mapGraph
+/rtabmap/mapOdomCache
+/rtabmap/mapPath
+/rtabmap/octomap_binary
+/rtabmap/octomap_empty_space
+/rtabmap/octomap_full
+/rtabmap/octomap_global_frontier_space
+/rtabmap/octomap_grid
+/rtabmap/octomap_ground
+/rtabmap/octomap_obstacles
+/rtabmap/octomap_occupied_space
+/rtabmap/odom
+/rtabmap/odom_info
+/rtabmap/odom_info_lite
+/rtabmap/odom_last_frame
+/rtabmap/odom_local_map
+/rtabmap/odom_local_scan_map
+/rtabmap/odom_rgbd_image
+/rtabmap/proj_map
+/rtabmap/republish_node_data
+/rtabmap/scan_map
+/set_pose
+/tag_detections
+/tf
+/tf_static
+/user_data_async
+/voxel_cloud
+
+
+// voxel cloud doesn't work properly, i suspect some issue with rgb camera
+> roslaunch bob realsense_mapping.launch
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+15/1/24
+
+MOVEBASE WITH REALSENSE - WITH OBSTACLE AVOIDANCE WORKS LETS FRIGGIN GOO AAA
+
+> roslaunch bob realsense_movebase.launch
+got to package simple_navigation_goals/src
+> ./simple_navigation_goals.py
+
+TODO
+- accuracy test 
+- FEED DYNAMIC GOALS TO MOVEBASE - NEEDS TO MOVE FORWARD FROM CURRENT POSITION, NOT SOME ARBITRARY VALUE LIKE IT CURRENTLY IS
+- integrate with arrow detection thing : add timing sync (?)
+- add the wheels thing
+- ekf add (where exactly  - howto switch) https://github.com/fazildgr8/realsense_explorer_bot/blob/main/realsense_explorer_navigation/launch/move_base.launch
+- STOP 2M RADIUS IN FRONT OF ARROW WAYPOINT - NEED TO OVERLAY THE COORDINATE FRAME FROM YOLO ONTO THE DEPTH CAM FRAME FROM REALSENSE AND AVERAGE OUT DEPTH OF CENTER-MOST PIXELS
+- https://github.com/IntelRealSense/realsense-ros/issues/2106
+- THE GPS COORDINATES PUBLISH THING.
+
+----------------------------------------------------------------
+
+bounding box - realsense
+https://github.com/IntelRealSense/librealsense/issues/7951
+
+movebase without ekf or even laser scan??
+https://github.com/gbr1/erwhi-hedgehog-ros/blob/kinetic/erwhi_navigation/config/teb_planner.yaml
+
+----------------------------------------------------------------
+
+THE WORKING THING, TO RUN (connect to arduino, upload, connect to realsense)
+> roslaunch bob realsense_mapping.launch
+> cd src/simple_navigation_goals/src
+> ./pyserial
+> ./basic_goal_publish.py
+
+todo:
+- the rotation around goal: edit dwa config params
+- obstacle detection? depth map? save map? without external commands?
+- give time based goals
+- how to stop early without using action client?
+- integrate arrow thing into it
+- must publish gps coordinates at specific points? will rosbag do?
+
+
+-------------------------------------------------------------------
+
+looks like our robot is currently ackermann type
+https://github.com/chrissunny94/ackerman_ros_robot_gazebo_simulation/blob/master/custom_controllers/teb_local_planner_tutorials/scripts/cmd_vel_to_ackermann_drive.py
+
+sudo apt-get install ros-noetic-teb-local-planner
+teb is apparently used for non holonomic robots (like ours)
+
+no wait, this one's the real deal:
+https://github.com/chrissunny94/ackerman_ros_robot_gazebo_simulation/blob/master/custom_controllers/teb_local_planner_tutorials/cfg/diff_drive/teb_local_planner_params.yaml
+
+
+to see all video devices
+> sudo apt-get install v4l-utils
+> v4l2-ctl --list-devices
+
+output
+Intel(R) RealSense(TM) Depth Ca (usb-0000:00:14.0-1):
+	/dev/video2
+	/dev/video3
+	/dev/video4
+	/dev/video5
+	/dev/video6
+	/dev/video7
+	/dev/media1
+	/dev/media2
+
+Integrated Camera: Integrated C (usb-0000:00:14.0-7):
+	/dev/video0
+	/dev/video1
+
+
+see details of any one of these
+> v4l2-ctl --device=/dev/video2 --all
+
+Driver Info:
+	Driver name      : uvcvideo
+	Card type        : Intel(R) RealSense(TM) Depth Ca
+	Bus info         : usb-0000:00:14.0-1
+	Driver version   : 5.15.131
+	Capabilities     : 0x84a00001
+		Video Capture
+		Metadata Capture
+		Streaming
+		Extended Pix Format
+		Device Capabilities
+	Device Caps      : 0x04200001
+		Video Capture
+		Streaming
+		Extended Pix Format
+Media Driver Info:
+	Driver name      : uvcvideo
+	Model            : Intel(R) RealSense(TM) Depth Ca
+	Serial           : 210523063099
+	Bus info         : usb-0000:00:14.0-1
+	Media version    : 5.15.131
+	Hardware revision: 0x000050f1 (20721)
+	Driver version   : 5.15.131
+Interface Info:
+	ID               : 0x03000002
+	Type             : V4L Video
+Entity Info:
+	ID               : 0x00000001 (1)
+	Name             : Intel(R) RealSense(TM) Depth Ca
+	Function         : V4L2 I/O
+	Flags         : default
+	Pad 0x0100000d   : 0: Sink
+	  Link 0x02000017: from remote pad 0x1000010 of entity 'Intel(R) RealSense(TM) Depth Ca': Data, Enabled, Immutable
+Priority: 2
+Video input : 0 (Camera 1: ok)
+Format Video Capture:
+	Width/Height      : 848/480
+	Pixel Format      : 'Z16 ' (16-bit Depth)
+	Field             : None
+	Bytes per Line    : 1696
+	Size Image        : 814080
+	Colorspace        : Default
+	Transfer Function : Default (maps to Rec. 709)
+	YCbCr/HSV Encoding: Default (maps to ITU-R 601)
+	Quantization      : Default (maps to Full Range)
+	Flags             : 
+Crop Capability Video Capture:
+	Bounds      : Left 0, Top 0, Width 848, Height 480
+	Default     : Left 0, Top 0, Width 848, Height 480
+	Pixel Aspect: 1/1
+Selection Video Capture: crop_default, Left 0, Top 0, Width 848, Height 480, Flags: 
+Selection Video Capture: crop_bounds, Left 0, Top 0, Width 848, Height 480, Flags: 
+Streaming Parameters Video Capture:
+	Capabilities     : timeperframe
+	Frames per second: 30.000 (30/1)
+	Read buffers     : 0
+                           gain 0x00980913 (int)    : min=16 max=248 step=1 default=16 value=16
+
+
+focus on
+Format Video Capture:
+	Pixel Format      : 'Z16 ' (16-bit Depth)
+
+so this one's a depth cam, not rgb
+
+
+video2: depth
+video3: uvhc (normal?)
+video4: grey
+video5: uvhc
+video6: YUYV (YUYV 4:2:2)
+
+so index 3 or 5?

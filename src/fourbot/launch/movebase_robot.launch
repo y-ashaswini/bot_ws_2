@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+	<!-- Robot pose -->
+	<arg name="x" default="0" />
+	<arg name="y" default="0" />
+	<arg name="z" default="1" />
+	<arg name="roll" default="0" />
+	<arg name="pitch" default="0" />
+	<arg name="yaw" default="0" />
+	<arg name="robot_name" default="fourbot" />
+
+	<!-- Launch other relevant files-->
+	<include file="$(find fourbot)/launch/robot_description.launch" />
+
+	<!-- World File -->
+	<arg name="world_file" default="$(find fourbot)/worlds/obstacle_course.world" />
+
+	<!-- Launch Gazebo World -->
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="use_sim_time" value="true" />
+		<arg name="verbose" value="false" />
+		<arg name="debug" value="false" />
+		<arg name="gui" value="true" />
+		<arg name="world_name" value="$(arg world_file)" />
+	</include>
+
+
+	<!-- spawn the robot using arguments in this vidoe -->
+	<node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+		args="-urdf -param robot_description -model fourbot
+			  -x $(arg x) -y $(arg y) -z $(arg z)
+			  -R $(arg roll) -P $(arg pitch) -Y $(arg yaw)" />
+
+	<!--launch rviz-->
+	<node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find fourbot)/worlds/trav2.rviz"/>
+	
+
+</launch>
+
+
+<!--
+    rosrun teleop_twist_keyboard teleop_twist_keyboard.py cmd_vel:=/fourbot/cmd_vel
+-->

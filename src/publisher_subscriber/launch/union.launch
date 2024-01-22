@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+    <!-- define the nodes to be launched when launch command run -->
+
+    <group ns="one">
+        <node pkg="publisher_subscriber" type="topic_publisher" name="topic_publisher" />
+        <node pkg="publisher_subscriber" type="topic_subscriber" name="topic_subscriber" />
+    </group>
+    <group ns="two">
+        <node pkg="publisher_subscriber" type="topic_publisher" name="topic_publisher" />
+        <node pkg="publisher_subscriber" type="topic_subscriber" name="topic_subscriber" />
+    </group>
+</launch>
+
+<!-- creating 2 sets of publishers and subscribers to test launching multiple nodes at once, and
+establishing simultaneous communication among them -->
+
+<!-- node:
+1) pkg - package name
+2) type - name of actual node to be executed (node name)
+3) name - the executeable name
+-->

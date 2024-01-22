@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="sensor_control" type="fake_gps_publisher.py"  respawn="true"  name="fake_gps_node_pub" />
+    <node pkg="sensor_control" type="fake_gps_subscriber.py"  respawn="true"  name="fake_gps_node_sub" />
+    <!--    open new terminal, type "rostopic echo /fake_gps" 
+            name of message - as defined in pub/sub model
+    -->
+</launch>

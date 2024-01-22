@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <!-- defining the physical robot -->
+    <!-- Robot pose -->
+	<arg name="x" default="0" />
+	<arg name="y" default="0" />
+	<arg name="z" default="1" />
+	<arg name="roll" default="0" />
+	<arg name="pitch" default="0" />
+	<arg name="yaw" default="0" />
+	<arg name="robot_name" default="bob" />
+
+	<!-- Launch other relevant files-->
+	<include file="$(find bob)/launch/robot_description.launch" />
+    <!-- <arg name="world_file" default="$(find fourbot)/worlds/obstacle_course.world" /> -->
+    <arg name="world_file" default="$(find fourbot)/worlds/empty.world" />
+
+
+    <!-- Launch Gazebo World -->
+    <!-- Enable Gazebo to see cmd_vel in simulation -->
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="use_sim_time" value="true" />
+		<arg name="verbose" value="false" />
+		<arg name="debug" value="false" />
+		<arg name="gui" value="true" />
+		<arg name="world_name" value="$(arg world_file)" />
+	</include>
+
+
+	<!-- spawn the robot using arguments  -->
+	<node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+		args="-urdf -param robot_description -model fourbot
+			  -x $(arg x) -y $(arg y) -z $(arg z)
+			  -R $(arg roll) -P $(arg pitch) -Y $(arg yaw)" />
+
+
+    <!-- realsense camera - the previous code -->
+
+    <arg name="offline" default="false"/>
+    <include unless="$(arg offline)" 
+        file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="align_depth" value="true"/>
+        <arg name="linear_accel_cov" value="1.0"/>
+        <arg name="unite_imu_method" value="linear_interpolation"/>
+    </include>
+
+    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="ImuFilter">
+        <param name="use_mag" type="bool" value="false" />
+        <param name="_publish_tf" type="bool" value="false" />
+        <param name="_world_frame" type="string" value="enu" />
+        <!-- <remap from="/rtabmap/odom" to="/imu/data_raw"/> -->
+        <!-- <remap from="/imu/data_raw" to="/camera/imu"/> -->
+        <remap from="/imu/data" to="/camera/imu"/>
+    </node>
+
+    <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+        <arg name="args" value=" --delete_db_on_start"/>
+        <arg name="rgb_topic" value="/camera/color/image_raw"/>
+        <arg name="depth_topic" value="/camera/aligned_depth_to_color/image_raw"/>
+        <arg name="camera_info_topic" value="/camera/color/camera_info"/>
+        <arg name="depth_camera_info_topic" value="/camera/depth/camera_info"/>
+        <param name="frame_id" value="camera_link"/>
+        <param name="subscribe_stereo" value="True"/>
+        <param name="subscribe_odom_info" value="True"/>
+        <param name="wait_imu_to_init" value="True"/>
+        <param name="Vis/MinInliers" value="5"/>
+        <param name="Rtabmap/DetectionRate" value="2"/>
+
+        <!-- <arg name="rviz" value="true"/> -->
+    </include>
+
+    <include file="$(find robot_localization)/launch/ukf_template.launch"/>
+    <param name="/ukf_se/frequency" value="300"/>
+    <!-- above: was 300 -->
+    <param name="/ukf_se/base_link_frame" value="robot_footprint"/>
+    <param name="/ukf_se/odom0" value="rtabmap/odom"/>
+    
+    <!-- adding debug nodes -->
+    <!-- <param name="/ukf_se/debug" value="true"/> -->
+    <!-- <param name="/ukf_se/debug_out_file" value="$(find bob)/debugoutput.txt"/> -->
+
+    <rosparam param="/ukf_se/odom0_config">[true,true,true,
+                                            true,true,true,
+                                            true,true,true,
+                                            true,true,true,
+                                            true,true,true]
+    </rosparam>
+    <param name="/ukf_se/odom0_relative" value="true"/>
+    <param name="/ukf_se/odom0_pose_rejection_threshold" value="10000000"/>
+    <param name="/ukf_se/odom0_twist_rejection_threshold" value="10000000"/>
+
+    <param name="/ukf_se/imu0" value="/imu/data"/>
+    <rosparam param="/ukf_se/imu0_config">[false, false, false,
+                                           true,  true,  true,
+                                           true,  true,  true,
+                                           true,  true,  true,
+                                           true,  true,  true]
+    </rosparam>
+    <param name="/ukf_se/imu0_differential" value="true"/>
+    <param name="/ukf_se/imu0_relative" value="false"/>
+    <param name="/ukf_se/use_control" value="false"/>
+    
+    <!-- <param name="/ukf_se/odom0_config" value="{true,true,true,}"/> -->
+
+    <!-- TF from bot to camera -->
+    <!-- <node pkg="tf" type="static_transform_publisher" name="footprint_to_camera" args="0 0 0 0 0 0 robot_footprint camera_link 10"/>
+    <node pkg="tf" type="static_transform_publisher" name="map_to_camera" args="0 0 0 0 0 0 map camera_link 10"/> -->
+
+    <!-- include movebase node (with amcl now - using depth to laser scanning)-->
+    <!-- <include file="$(find bob)/launch/movebase_node.launch"/> -->
+
+    <!-- pose publisher - for continuously publishing current robot position -->
+    <!-- <include file="$(find pose_publisher)/launch/pose_publisher.launch"/> -->
+
+
+    <!-- another movebase attempt -->
+    <include file="$(find bob)/launch/movebase_another.launch"/>
+
+    <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find bob)/rviz/realsense_movebase.rviz"/>
+</launch>

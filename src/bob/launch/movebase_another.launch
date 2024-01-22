@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="odom_frame_id" default="odom"/>
+    <arg name="base_frame_id" default="robot_footprint"/>
+    <arg name="global_frame_id" default="map"/>
+    <arg name="odom_topic" default="rtabmap/odom" />
+    <!-- <arg name="goal_topic" default = "/move_base_simple/goal"/> -->
+
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+        <rosparam file="$(find bob)/config_another/costmap_common_params.yaml" command="load" ns="global_costmap" />
+        <rosparam file="$(find bob)/config_another/costmap_common_params.yaml" command="load" ns="local_costmap" />   
+        <rosparam file="$(find bob)/config_another/local_costmap_params.yaml" command="load" />   
+        <rosparam file="$(find bob)/config_another/global_costmap_params.yaml" command="load" />       
+        <!-- <rosparam file="$(find bob)/config_another/move_base_params.yaml" command="load" /> -->
+
+        <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+        <rosparam file="$(find bob)/config_another/teb_local_planner_params.yaml" />
+        
+        <!-- <param name="goal_topic" value="$(arg goal_topic)">
+            <param name="queue_size" value="10"/>
+        </param> -->
+
+        <!-- DWA planner -->
+        
+        <!-- <rosparam file="$(find bob)/config_another/dwa_local_planner_params.yaml" command="load" /> -->
+        <!-- <param name="DWAPlannerROS/global_frame_id" value="$(arg odom_frame_id)"/>        -->
+        <rosparam file="$(find bob)/config_another/global_planner_params.yaml" command="load" />
+        <rosparam file="$(find bob)/config_another/navfn_global_planner_params.yaml" command="load" />
+
+
+        <!-- TEB planner for ackermann robots -->
+
+
+        
+
+        <!-- TEB planner normal (not using) -->
+        
+        <!-- <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+        <rosparam file="$(find bob)/config_another/teb_planner.yaml" /> -->        
+
+        <!-- reset frame_id parameters using user input data -->
+        <param name="global_costmap/global_frame" value="$(arg global_frame_id)"/>
+        <param name="global_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+        <param name="local_costmap/global_frame" value="$(arg odom_frame_id)"/>
+        <param name="local_costmap/robot_base_frame" value="$(arg base_frame_id)"/>
+        
+
+        <remap from="cmd_vel" to="bob/cmd_vel"/>
+        <remap from="map" to="rtabmap/grid_map" />
+    </node>
+</launch>

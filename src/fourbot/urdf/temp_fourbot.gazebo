@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<robot>
+
+  <!-- Skid steer drive controller -->
+  <gazebo>
+    <plugin name="skid_steer_drive_controller" filename="libgazebo_ros_skid_steer_drive.so">
+      <updateRate>10.0</updateRate>
+      <robotNamespace>/fourbot</robotNamespace>
+      <leftFrontJoint>left_wheel_hinge_front</leftFrontJoint>
+      <rightFrontJoint>right_wheel_hinge_front</rightFrontJoint>
+      <leftRearJoint>left_wheel_hinge_back</leftRearJoint>
+      <rightRearJoint>right_wheel_hinge_back</rightRearJoint>
+      <wheelSeparation>0.4</wheelSeparation>
+      <wheelDiameter>0.2</wheelDiameter>
+      <robotBaseFrame>robot_footprint</robotBaseFrame>
+      <torque>10</torque>
+
+      <topicName>cmd_vel</topicName>
+      <odometryTopic>odom</odometryTopic>
+      <odometryFrame>odom</odometryFrame>
+
+      <commandTopic>cmd_vel</commandTopic>
+      <topic_name_twist>cmd_vel</topic_name_twist>
+      <topic_name_odometry>odom</topic_name_odometry>
+      <topic_name_joint>joint</topic_name_joint>
+
+      <broadcastTF>true</broadcastTF>
+
+      <covariance_x>0.0001</covariance_x>
+      <covariance_y>0.0001</covariance_y>
+      <covariance_yaw>0.01</covariance_yaw>
+    </plugin>
+  </gazebo>
+
+  <!-- Camera -->
+  <!-- <gazebo reference="camera">
+    <sensor type="camera" name="camera1">
+      <update_rate>30.0</update_rate>
+      <camera name="head">
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>800</width>
+          <height>800</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>300</far>
+        </clip>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <robotNamespace>/fourbot</robotNamespace>
+        <alwaysOn>true</alwaysOn>
+        <updateRate>0.0</updateRate>
+        <cameraName>camera</cameraName>
+        <imageTopicName>rgb/image_raw</imageTopicName>
+        <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
+        <frameName>camera</frameName>
+        <hackBaseline>0.07</hackBaseline>
+        <distortionK1>0.0</distortionK1>
+        <distortionK2>0.0</distortionK2>
+        <distortionK3>0.0</distortionK3>
+        <distortionT1>0.0</distortionT1>
+        <distortionT2>0.0</distortionT2>
+      </plugin>
+    </sensor>
+  </gazebo> -->
+
+  <!-- hokuyo LASER -->
+  <!-- <gazebo reference="hokuyo">
+    <sensor type="ray" name="head_hokuyo_sensor">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>40</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>720</samples>
+            <resolution>1</resolution>
+            <min_angle>-1.570796</min_angle>
+            <max_angle>1.570796</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.10</min>
+          <max>30.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>               
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="gazebo_ros_head_hokuyo_controller" filename="libgazebo_ros_laser.so">
+        <topicName>/scan</topicName>
+        <frameName>hokuyo</frameName>
+        <robotNamespace>/fourbot</robotNamespace>
+      </plugin>
+    </sensor>
+  </gazebo> -->
+
+
+  <!-- Depth Sensor Plugin -->
+  <!-- <gazebo reference="depthcam">
+    <sensor name="depthcam_camera" type="depth">
+      <update_rate>20</update_rate>
+      <camera>
+        <horizontal_fov>1.047198</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>  
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.05</near>
+          <far>3</far>
+        </clip>
+      </camera>
+      <plugin name="depthcam_controller" filename="libgazebo_ros_openni_kinect.so">
+        <baseline>0.2</baseline>
+        <alwaysOn>true</alwaysOn>
+        <updateRate>1.0</updateRate>
+        <cameraName>depthcam_ir</cameraName>
+        <imageTopicName>/depthcam/color/image_raw</imageTopicName>
+        <cameraInfoTopicName>/depthcam/color/camera_info</cameraInfoTopicName>
+        <depthImageTopicName>/depthcam/depth/image_raw</depthImageTopicName>
+        <depthImageInfoTopicName>/depthcam/depth/camera_info</depthImageInfoTopicName>
+        <pointCloudTopicName>/depthcam/depth/points</pointCloudTopicName>
+        <frameName>depthcam</frameName>
+        <pointCloudCutoff>0.5</pointCloudCutoff>
+        <pointCloudCutoffMax>3.0</pointCloudCutoffMax>
+        <distortionK1>0.00000001</distortionK1>
+        <distortionK2>0.00000001</distortionK2>
+        <distortionK3>0.00000001</distortionK3>
+        <distortionT1>0.00000001</distortionT1>
+        <distortionT2>0.00000001</distortionT2>
+        <CxPrime>0</CxPrime>
+        <Cx>0</Cx>
+        <Cy>0</Cy>
+        <focalLength>0</focalLength>
+        <hackBaseline>0</hackBaseline>
+      </plugin>
+    </sensor>
+  </gazebo> -->
+
+  <!-- Ouster 3D Lidar -->
+  <!-- <gazebo reference="ouster_lidar">
+    <sensor type="ray" name="ouster_lidar">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <vertical>
+          <samples>64</samples>
+          <resolution>1</resolution>
+          <min_angle>${-16.6*3.1415926535897931/180.0}</min_angle>
+          <max_angle>${16.6*3.1415926535897931/180.0}</max_angle>
+          </vertical>
+          <horizontal>
+          <samples>512</samples>
+          <resolution>1</resolution>
+          <min_angle>-3.1415926535897931</min_angle>
+          <max_angle>3.1415926535897931</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+            <min>0.8</min>
+            <max>100</max>
+            <resolution>0.03</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.000000000001</stddev>
+        </noise>
+      </ray>
+      <plugin name="gazebo_ros_laser_controller" filename="libgazebo_ros_ouster_laser.so">
+        <topicName>os1_cloud_node/points</topicName>
+        <frameName>ouster_lidar</frameName>
+        <min_range>0.8</min_range>
+        <max_range>100</max_range>
+        <gaussianNoise>0.008</gaussianNoise>
+      </plugin>
+    </sensor>
+  </gazebo> -->
+
+   
+    <!-- Ouster 3D IMU -->
+
+    <gazebo reference="ouster_imu">
+      <sensor type="imu" name="ouster_imu_sensor">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>true</always_on>
+        <update_rate>100</update_rate>
+        <visualize>true</visualize>
+        <topic>fourbot/os1_cloud_node/imu</topic>
+      </sensor>
+    </gazebo>
+
+
+
+  <!-- IMU Sensor -->
+  <gazebo>
+    <plugin name="imu_plugin" filename="libgazebo_ros_imu.so">
+      <robotNamespace>/fourbot</robotNamespace>
+      <alwaysOn>true</alwaysOn>
+      <bodyName>robot_footprint</bodyName>
+      <topicName>imu</topicName>
+      <serviceName>imu_service</serviceName>
+      <gaussianNoise>0.0</gaussianNoise>
+      <updateRate>20.0</updateRate>
+    </plugin>
+  </gazebo>
+
+
+  <!-- GPS Sensor -->
+  <!-- <gazebo>      
+    <controller:hector_gazebo_ros_gps name="quadrotor_gps_sim" plugin="libhector_gazebo_ros_test.so">
+      <alwaysOn>true</alwaysOn>
+      <updateRate>4.0</updateRate>
+      <bodyName>base_footprint</bodyName>
+      <topicName>fix</topicName>
+      <velocityTopicName>fix_vel</velocityTopicName>
+      <drift>5.0 5.0 5.0</drift>
+      <gaussianNoise>0.1 0.1 0.1</gaussianNoise>
+      <velocityDrift>0 0 0</velocityDrift>
+      <velocityGaussianNoise>0.1 0.1 0.1</velocityGaussianNoise>
+    </controller:hector_gazebo_ros_gps>
+  </gazebo>
+ -->
+
+</robot>

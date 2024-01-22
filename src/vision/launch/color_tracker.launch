@@ -1,0 +1,4 @@
+<launch>
+    <node name="webcam" pkg="vision" respawn="true" output="screen" type="color_tracker.py"/>
+    <!-- type : mention name of file -->
+</launch>

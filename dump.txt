@@ -1,0 +1,50 @@
+header: 
+  seq: 0
+  stamp: 
+    secs: 0
+    nsecs:         0
+  frame_id: ''
+detections: 
+  - 
+    header: 
+      seq: 0
+      stamp: 
+        secs: 0
+        nsecs:         0
+      frame_id: ''
+    results: 
+      - 
+        id: 1
+        score: 0.8183038830757141
+        pose: 
+          pose: 
+            position: 
+              x: 0.0
+              y: 0.0
+              z: 0.0
+            orientation: 
+              x: 0.0
+              y: 0.0
+              z: 0.0
+              w: 0.0
+          covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    bbox: 
+      center: 
+        x: 158.9073944091797
+        y: 210.38739013671875
+        theta: 0.0
+      size_x: 109.51376342773438
+      size_y: 61.83770751953125
+    source_img: 
+      header: 
+        seq: 0
+        stamp: 
+          secs: 0
+          nsecs:         0
+        frame_id: ''
+      height: 0
+      width: 0
+      encoding: ''
+      is_bigendian: 0
+      step: 0
+      data: []
