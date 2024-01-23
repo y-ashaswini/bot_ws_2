@@ -5,7 +5,6 @@ from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 import time
 from scipy import stats
-from std_srvs.srv import Empty
 
 directions = []
 depths = []
@@ -73,9 +72,7 @@ def callback(data):
         # unsubscribe temporarily from movebase?? overrride movebase path ???
         # or just stop listening to cmd_vel commands from there???
         
-        if(d <= 1500 and d > 0 ):
-            # ONLY DO THIS IF THE ROVER IS WITHIN THE RADIUS !!
-            execute_rover_movement()
+        execute_rover_movement()
     
 def start_countdown():
     global counter, countdown_active
@@ -96,98 +93,89 @@ def publish_countdown():
     countdown_pub.publish(Twist())
 
 
-def start_move_base():
-    rospy.wait_for_service('/move_base/start')
-    try:
-        start_move_base_proxy = rospy.ServiceProxy('/move_base/start', Empty)
-        start_move_base_proxy()
-        rospy.loginfo("move_base node started")
-    except rospy.ServiceException as e:
-        rospy.logerr("Service call to start move_base failed: %s", str(e))
-
-def stop_move_base():
-    rospy.wait_for_service('/move_base/stop')
-    try:
-        stop_move_base_proxy = rospy.ServiceProxy('/move_base/stop', Empty)
-        stop_move_base_proxy()
-        rospy.loginfo("move_base node stopped")
-    except rospy.ServiceException as e:
-        rospy.logerr("Service call to stop move_base failed: %s", str(e))
-
-
 def execute_rover_movement():
     global p, countdown_active
 
-    if p == 0 or p == 1:
-        # left or right
-        rospy.init_node('start_stop_move_base_override_cmd')
-        stop_move_base()
-        global direction_subscriber
-
-        # Unsubscribe from the direction topic
-        direction_subscriber.unregister()
-        
-        stop_rover()
-        rospy.sleep(10) # stop inside 2m radius for 10 seconds
-
-        # Set up a rate to control the publishing frequency
-        rate = rospy.Rate(10)
-        twist_turn = Twist()
-
-
-        if p == 0 and countdown_active:
-            # left turn
-            print("detected left, executing left turn")
-            twist_turn.angular.z = 1.0
-        
-        elif p == 1 and countdown_active:
-            # right turn
-            print("detected right, executing right turn")
-            twist_turn.angular.z = -1.0
-
-        turn_duration = rospy.Duration.from_sec(1.5)  # 90 degrees in radians
-        start_time_turn = time.time()
-
-        while time.time() - start_time_turn < turn_duration.to_sec():
-            pub.publish(twist_turn)
-            rate.sleep()
-
-        stop_rover()
-        countdown_active = False  # Stop the countdown after turning
-
-        global p
-        p=2 # set it as 'nan' again, until next detection
-
-
-        # restart movebase 
-        start_move_base()
-
-
-        # Subscribe again to the direction topic
-        direction_subscriber = rospy.Subscriber("/direction", String, callback)
-
-
+    if p == 0 and countdown_active:
+        print("detected left, executing left turn")
+        # move_and_turn_left()
+    elif p == 1:
+        print("detected right, executing right turn")
+        # move_and_turn_right()
     elif p == 3:
         print("detected goal, stopping")
         # do something when goal
-        stop_move_base()
-        stop_rover()
-
     else:
         print("detected nothing")
 
 
+def move_and_turn_left():
+    global countdown_active, direction_subscriber
+
+    # Unsubscribe from the direction topic
+    direction_subscriber.unregister()
+
+    stop_rover()
+    rospy.sleep(10) # stop inside 2m radius for 10 seconds
+
+    # Set up a rate to control the publishing frequency
+    rate = rospy.Rate(10)
+
+    twist_turn = Twist()
+    twist_turn.angular.z = 1.0
+    turn_duration = rospy.Duration.from_sec(1.5)  # 90 degrees in radians
+    start_time_turn = time.time()
+
+    while time.time() - start_time_turn < turn_duration.to_sec():
+        pub.publish(twist_turn)
+        rate.sleep()
+
+    stop_rover()
+    countdown_active = False  # Stop the countdown after turning
+    
+    global p
+    p=2 # set it as 'nan' again, until next detection
+
+    # Subscribe again to the direction topic
+    direction_subscriber = rospy.Subscriber("/direction", String, callback)
+
+def move_and_turn_right():
+    global direction_subscriber
+
+    # Unsubscribe from the direction topic
+    direction_subscriber.unregister()
+
+    # Turn right
+    twist_turn = Twist()
+    twist_turn.angular.z = -1.0
+    turn_duration = rospy.Duration.from_sec(1.5)  # 90 degrees in radians
+    start_time_turn = time.time()
+
+    # Set up a rate to control the publishing frequency
+    rate = rospy.Rate(10)
+
+    while time.time() - start_time_turn < turn_duration.to_sec():
+        pub.publish(twist_turn)
+        rate.sleep()
+
+    stop_rover()
+    global p
+    p=2
+
+    # Subscribe again to the direction topic
+    direction_subscriber = rospy.Subscriber("/direction", String, callback)
 
 def move_rover():
     twist = Twist()
     twist.linear.x = 0.2
     pub.publish(twist)
 
-
 def stop_rover():
     twist = Twist()
     pub.publish(twist)
 
+def switch_lists(event):
+    pass
 
 def list_switcher_node():
     global start_time, curr_time
@@ -198,8 +186,8 @@ def list_switcher_node():
     global direction_subscriber
     rospy.init_node("list_switcher_node")
     direction_subscriber = rospy.Subscriber("/direction", String, callback)
+    timer = rospy.Timer(rospy.Duration(1), switch_lists)  # Switch lists every 5 seconds
     rospy.spin()
-
 
 if __name__ == "__main__":
     try:

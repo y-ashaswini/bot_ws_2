@@ -16,7 +16,6 @@ import pyrealsense2 as rs
 
 y = YOLO('/home/alexii/robotics/bot_workspace/src/bob/models/best.pt')
 
-
 # Left
 # Right
 # barrel - v1 cone barrel relabel
@@ -42,27 +41,23 @@ class TrackerNode:
         path = roslib.packages.get_pkg_dir("bob")
         self.model = YOLO(f"{path}/models/{self.yolo_model}")
         self.model.fuse()
-        # self.results_pub = rospy.Publisher(self.result_topic, YoloResult, queue_size=1) # YOLORESULT CUSTOM MESSAGE PUBLISHES HERE
-        # self.result_image_pub = rospy.Publisher(self.result_image_topic, Image, queue_size=1) ##### RESULT IMAGE PUBLISHES HERE
         self.bridge = cv_bridge.CvBridge()
         self.use_segmentation = self.yolo_model.endswith("-seg.pt")
+
         self.direction_pub = rospy.Publisher('direction', String, queue_size=1)
+        self.results_pub = rospy.Publisher(self.result_topic, YoloResult, queue_size=1) # YOLORESULT CUSTOM MESSAGE PUBLISHES HERE
+        
         self.last_publish_time = time.time()
+        self.curr_time = self.last_publish_time
         self.publish_interval = 5  # seconds
+
         self.depths = []
         self.dir = []
 
         self.detected_arrow = False
         self.center_x = 0
         self.center_y = 0  
-        self.size_x = 0
-        self.size_y = 0
         self.distance_appr = 0
-
-        self.x1 = 0
-        self.x2 = 0 
-        self.y1 = 0
-        self.y2 = 0 
 
 
     def create_detections_array(self, results):
@@ -79,10 +74,10 @@ class TrackerNode:
             self.center_y = detection.bbox.center.y
 
             detection.bbox.size_x = float(bbox[2])
-            self.size_x = detection.bbox.size_x
+            # self.size_x = detection.bbox.size_x
 
             detection.bbox.size_y = float(bbox[3])
-            self.size_y = detection.bbox.size_y
+            # self.size_y = detection.bbox.size_y
 
             hypothesis = ObjectHypothesisWithPose()
             hypothesis.id = int(cls)
@@ -90,6 +85,7 @@ class TrackerNode:
             detection.results.append(hypothesis)
             detections_msg.detections.append(detection)
         return detections_msg
+    
 
     def create_result_image(self, results):
         plotted_image = results[0].plot(
@@ -104,25 +100,9 @@ class TrackerNode:
         result_image_msg = self.bridge.cv2_to_imgmsg(plotted_image, encoding="bgr8")
         return result_image_msg
 
-    def create_segmentation_masks(self, results):
-        masks_msg = []
-        for result in results:
-            if hasattr(result, "masks") and result.masks is not None:
-                for mask_tensor in result.masks:
-                    mask_numpy = (
-                        np.squeeze(mask_tensor.data.to("cpu").detach().numpy()).astype(
-                            np.uint8
-                        )
-                        * 255
-                    )
-                    mask_image_msg = self.bridge.cv2_to_imgmsg(
-                        mask_numpy, encoding="mono8"
-                    )
-                    masks_msg.append(mask_image_msg)
-        return masks_msg
+
 
     def capture_frames_from_webcam(self):
-
 
         # Configure depth and color streams
         pipeline = rs.pipeline()
@@ -183,92 +163,60 @@ class TrackerNode:
                 else:
                     images = np.hstack((color_image, depth_colormap))
 
-                # Show images
+
+                # if color_image and depth_image:
+                try:
+                    results = self.model.track(
+                        source=color_image,
+                        conf=self.conf_thres,
+                        iou=self.iou_thres,
+                        max_det=self.max_det,
+                        classes=self.classes,
+                        tracker=self.tracker,
+                        device=self.device,
+                        verbose=False,
+                        retina_masks=True,
+                    )
+
+
+                    yolo_result_msg = YoloResult()
+
+                    if results is not None and len(results[0].boxes) > 0:
+                        names = y.names # y = yolo model
+                        d = []
+                        for r in results:
+                            for c in r.boxes.cls:
+                                index = int(c)
+                                if 0 <= index < len(names):
+                                    a = names[index]
+                                    d.append(a)
+                                else:
+                                    rospy.logwarn(f"Invalid index: {index} in names list.")                
+                    else:
+                        d = ['nan'] # no detection
                     
-                cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-                cv2.circle(images, (int(self.center_x), int(self.center_y)), 5, (0, 0, 255), -1)
-                cv2.imshow('RealSense', images)
-                cv2.waitKey(1)
+                    yolo_result_msg.detections = self.create_detections_array(results) # to save values in the center thing
 
-                # use depth_image to calculate distance
-                # use color_image to calculate color
-
-                if color_image and depth_image:
-                    try:
-                        results = self.model.track(
-                            source=color_image,
-                            conf=self.conf_thres,
-                            iou=self.iou_thres,
-                            max_det=self.max_det,
-                            classes=self.classes,
-                            tracker=self.tracker,
-                            device=self.device,
-                            verbose=False,
-                            retina_masks=True,
-                        )
-
+                    # Show images
                         
+                    cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+                    cv2.circle(images, (int(self.center_x), int(self.center_y)), 5, (0, 0, 255), -1)
+                    cv2.imshow('RealSense', images)
+                    cv2.waitKey(1)
+
+
+                    # depth calculations
+                    curr_depth = depth_image[int(self.center_x) - 1][int(self.center_y) - 1]
+                    d.append(str(int(curr_depth))) # ['Left', [1234]] or ['', [0]] --> at the subscriber's side, if direction is ''then don't even check the depth (would be giving depth of 0,0)
                     
-                        # if results is not None and len(results[0].boxes) > 0:
-                        #     print("arrow detected hi")
-                        #     names = y.names # y = yolo model
-                        #     self.detected_arrow = True
-                        #     for r in results:
-                        #         for c in r.boxes.cls:
-                        #             index = int(c)
-                        #             if 0 <= index < len(names):
-                        #                 a = names[index]
-                        #                 self.dir.append(a)
-                        #             else:
-                        #                 rospy.logwarn(f"Invalid index: {index} in names list.")
+                    self.direction_pub.publish(','.join(d))
+                    self.results_pub.publish(yolo_result_msg) ##### PUBLISHING DETECTIONS ARRAY HERE
 
 
-                        #     curr_depth = depth_image[int(self.center_x)][int(self.center_y)]
-                        #     self.distance_appr = curr_depth
-                        #     if self.distance_appr > 0:
-                        #         self.depths.append(self.distance_appr)
-                        #         print("appending depth")
-                            
-                        #     # Check if it's time to publish to "direction" topic
-                        #     if (time.time() - self.last_publish_time >= self.publish_interval):
-                        #         print("time period over")
-                        #         if (len(self.depths) != 0):
-                        #             avg_depth = 0
-                        #             for i in self.depths:
-                        #                 avg_depth += i
-                        #             avg_depth/= len(self.depths)
-                        #             if(avg_depth <= 1500):
-                        #                 self.direction_pub.publish(','.join(self.dir))
-                        #                 self.last_publish_time = time.time()
-                        #                 self.depths = []
-                        #                 self.dir = []
-                        #         else:
-                        #             self.dir.append('no detection') # risky.
-                        #             print("time over but no depth (no arrow?)")
-
-                        #     else:
-                        #         # time span not over yet, append this depth into depths and these directions into dir
-                        #         if self.distance_appr > 0:
-                        #             print("depth appended, time not over")
-                        #             self.depths.append(self.distance_appr)
-
-                        # else:
-                        #     self.dir.append('no detection')
-
-                        #     self.center_x = 0
-                        #     self.center_y = 0  
-                        #     self.size_x = 0
-                        #     self.size_y = 0
-                        #     self.distance_appr = 0
-
-                        #     self.x1 = 0
-                        #     self.x2 = 0 
-                        #     self.y1 = 0
-                        #     self.y2 = 0 
+                except Exception as e:
+                    rospy.logerr("Error: ",e)
 
 
-                    except Exception as e:
-                        rospy.logerr("Error: ",e)
 
         finally:
 

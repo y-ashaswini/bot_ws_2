@@ -9,6 +9,7 @@ from std_srvs.srv import Empty
 
 directions = []
 depths = []
+
 p = 2  # Default value for 'nan' or no detection
 pub = rospy.Publisher('/bob/cmd_vel', Twist, queue_size=10)
 countdown_pub = rospy.Publisher('/countdown', Twist, queue_size=10)
@@ -62,8 +63,10 @@ def callback(data):
             start_countdown()
         elif mode_value == 'Right':
             p = 1
-        elif mode_value == 'barrel - v1 cone barrel relabel': # needs to be edited. current algorithm shows barrel very often
-            p = 3
+        
+        # elif mode_value == 'barrel - v1 cone barrel relabel': # needs to be edited. current algorithm shows barrel very often
+        #     p = 3
+        
         else:
             p = 2 # nan, do nothing
 
@@ -86,6 +89,7 @@ def start_countdown():
 def publish_countdown():
     global counter
     twist = Twist()
+
 
     for counter in range(10, 0, -1):
         twist.linear.x = counter
