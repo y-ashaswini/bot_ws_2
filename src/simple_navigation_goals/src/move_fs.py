@@ -4,14 +4,16 @@
 import pickle
 import rospy
 from std_msgs.msg import String
-from geometry_msgs.msg import Twist, PoseStamped
-# from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion, PointStamped
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionGoal
 import time
-from move_base_msgs.msg import MoveBaseActionGoal
+# from sensor_msgs.msg import NavSatFix
 # from scipy import stats
 import statistics
 from std_srvs.srv import Empty
+import actionlib
+import tf
+import math
 
 
 directions = []
@@ -24,8 +26,9 @@ counter = 10
 countdown_active = False
 direction_subscriber = None  # Global variable to store the direction subscriber
 
+
 gps_sub = None # gps node subscriber
-gps_ls = []
+
 
 start_time = 0
 curr_time = start_time
@@ -47,11 +50,13 @@ def callback(data):
     c = rospy.Time.now()
     curr_time = c.secs
 
+
     # print("directions now: ")
     # print(directions)
     # print("depths now: ")
     # print(depths)
     # print()
+
 
     l = data.data.split(',')
     direction = l[:len(l)-1]
@@ -135,6 +140,7 @@ def publish_countdown():
     countdown_pub.publish(Twist())
 
 
+
 def gps_sub_callback(data):
     # print(data)
     s = str(data.point.x)+" "+str(data.point.y)
@@ -146,33 +152,14 @@ def gps_sub_callback(data):
     gps_sub.unregister()
     print("saved gps in file")
 
+
 def save_gps_coordinate():
     print("saving gps...")
     global gps_sub
     gps_sub = rospy.Subscriber('/gps_data', PointStamped, gps_sub_callback)
     
-    
-
-def start_move_base():
-    rospy.wait_for_service('/move_base/start')
-    try:
-        start_move_base_proxy = rospy.ServiceProxy('/move_base/start', Empty)
-        start_move_base_proxy()
-        rospy.loginfo("move_base node started")
-    except rospy.ServiceException as e:
-        rospy.logerr("Service call to start move_base failed: %s", str(e))
-
 
 def stop_move_base():
-    # rospy.wait_for_service('/move_base/stop')
-
-    # try:
-    #     stop_move_base_proxy = rospy.ServiceProxy('/move_base/stop', Empty)
-    #     stop_move_base_proxy()
-    #     rospy.loginfo("move_base node stopped")
-    
-    # except rospy.ServiceException as e:
-    #     rospy.logerr("Service call to stop move_base failed: %s", str(e))
     cancel_goal_publisher = rospy.Publisher('move_base_simple/cancel', MoveBaseActionGoal, queue_size=10)
     cancel_goal_msg = MoveBaseActionGoal()
     cancel_goal_msg.goal_id.stamp = rospy.Time.now()
@@ -223,7 +210,7 @@ def execute_rover_movement():
             twist_turn.angular.z = -1.0
 
         countdown_active = True # rotation in motion
-        turn_duration = rospy.Duration.from_sec(1.5)  # 90 degrees in radians
+        turn_duration = rospy.Duration.from_sec(2)  # 90 degrees in radians
         start_time_turn = time.time()
 
         while time.time() - start_time_turn < turn_duration.to_sec():
@@ -237,50 +224,82 @@ def execute_rover_movement():
         p = 2 # set it as 'nan' again, until next detection
 
 
-        # restart movebase 
-        # start_move_base()
+        direction_subscriber = rospy.Subscriber("/direction", String, callback)
         move_rover()
 
+        ## GOAL DETECTION MUTED FOR NOW
+        # elif p == 3:
+        #     # do something when goal
+        #     print("detected goal, stopping")
 
-        # Subscribe again to the direction topic
-        direction_subscriber = rospy.Subscriber("/direction", String, callback)
 
-    ## GOAL DETECTION MUTED FOR NOW
-    # elif p == 3:
-    #     # do something when goal
-    #     print("detected goal, stopping")
-        
-    #     stop_move_base()
-    #     stop_rover()
 
     else:
         p = 2
         print("detected nothing")
 
 
+def get_current_orientation():
+    try:
+        # Wait for the transform between "base_link" and "map"
+        listener = tf.TransformListener()
+        listener.waitForTransform("odom", "robot_footprint", rospy.Time(), rospy.Duration(4.0))
+
+        # Get the current transformation
+        (trans, rot) = listener.lookupTransform("odom", "robot_footprint", rospy.Time(0))
+
+        # Convert quaternion to Euler angles
+        roll, pitch, yaw = tf.transformations.euler_from_quaternion(rot)
+
+        return yaw
+
+    except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        rospy.logwarn("Failed to get current orientation.")
+        return None
+
+
+def movebase_goal(x, y, theta):
+    # Create a MoveBase client
+    move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
+    move_base_client.wait_for_server()
+
+    # Create a MoveBaseGoal
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"  # Adjust the frame_id based on your setup
+    goal.target_pose.header.stamp = rospy.Time.now()
+
+    # Set the goal position
+    goal.target_pose.pose.position = Point(x, y, 0.0)
+
+    # Set the orientation (yaw angle)
+    quaternion = tf.transformations.quaternion_from_euler(0, 0, theta)
+    goal.target_pose.pose.orientation = Quaternion(*quaternion)
+
+    # Send the goal and wait for result
+    move_base_client.send_goal(goal)
+    move_base_client.wait_for_result()
+
+    # Print the result
+    if move_base_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
+        rospy.loginfo("Goal reached successfully!")
+    else:
+        rospy.loginfo("Failed to reach the goal.")
+
+
+
 def move_rover():
-    if not countdown_active:
-        # detected no arrow ... is this condition required?
 
-        # twist = Twist()
-        # twist.linear.x = 0.2
-        # pub.publish(twist)
+    current_theta = get_current_orientation()
 
-        goal_msg = PoseStamped()
-        goal_msg.header.stamp = rospy.Time.now()
-        goal_msg.header.frame_id = "map"
-        goal_msg.pose.position.x = 0.8
-        goal_msg.pose.position.y = 0.0
-        goal_msg.pose.position.z = 0.0
-        goal_msg.pose.orientation.w = 1.0
 
-        rate = rospy.Rate(1)  # 1 Hz
+    if current_theta is not None:
+        move_distance = 0.6
+        goal_x = math.cos(current_theta) * move_distance
+        goal_y = math.sin(current_theta) * move_distance
 
-        while not rospy.is_shutdown():
-            goal_pub.publish(goal_msg)
-            rospy.loginfo("moving 80 cm forward...")
+        # Set the new goal
+        movebase_goal(goal_x, goal_y, current_theta)
 
-            rate.sleep()
 
 
 def stop_rover():
@@ -298,7 +317,7 @@ def list_switcher_node():
     s = rospy.Time.now()
     start_time = s.secs
     curr_time = start_time
-    
+    move_rover()
     direction_subscriber = rospy.Subscriber("/direction", String, callback)
     rospy.spin()
 

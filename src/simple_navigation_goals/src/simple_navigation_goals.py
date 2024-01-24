@@ -33,6 +33,7 @@ def movebase_client():
    # Waits for the server to finish performing the action.
     wait = client.wait_for_result()
    # If the result doesn't arrive, assume the Server is not available
+    
     if not wait:
         rospy.logerr("Action server not available!")
         rospy.signal_shutdown("Action server not available!")
