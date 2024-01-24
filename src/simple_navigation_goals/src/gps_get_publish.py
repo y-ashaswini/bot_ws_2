@@ -28,9 +28,8 @@ def arduino_com():
 
                 rospy.loginfo("Publishing GPS data: {}".format(navsatfix_msg))
                 pub.publish(navsatfix_msg)
-
+                
             rate.sleep()
-
 
 if __name__ == '__main__':
     try:

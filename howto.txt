@@ -768,3 +768,29 @@ video5: uvhc
 video6: YUYV (YUYV 4:2:2)
 
 so index 3 or 5?
+
+-------------------------------------------------------------------
+
+> roslaunch bob realsense_mapping.launch
+> cd src/simple_navigation_goals/src
+
+
+connect to arduino
+> ./pyserial
+
+continuously subscribe to gps (where arduino code?)
+> ./gps_get_publish
+
+arrow detection and publishing code
+> ./new_camera.py
+
+without arrow detection -- DO NOT RUN IN MAIN
+> ./basic_goal_publish.py
+
+publish goal with intergated arrow + goal detection
+> ./move_fs
+
+to save map
+> rosrun pcl_ros pointcloud_to_pcd input:=/rtabmap/cloud_map
+
+> 

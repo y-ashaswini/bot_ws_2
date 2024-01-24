@@ -23,6 +23,7 @@ y = YOLO('/home/alexii/robotics/bot_workspace/src/bob/models/best.pt')
 
 class TrackerNode:
     def __init__(self):
+
         self.yolo_model = rospy.get_param("~yolo_model", "best.pt")
         self.result_topic = rospy.get_param("~result_topic", "yolo_result")
         self.result_image_topic = rospy.get_param("~result_image_topic", "yolo_image")
@@ -59,12 +60,22 @@ class TrackerNode:
         self.center_y = 0  
         self.distance_appr = 0
 
+        self.color_image = None
+        self.depth_image = None
+
+        self.i = 0
+
+        rospy.Subscriber('/camera/color/image_raw', Image, self.rgb_callback)
+        rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, self.depth_callback)
+
 
     def create_detections_array(self, results):
         detections_msg = Detection2DArray()
+
         bounding_box = results[0].boxes.xywh
         classes = results[0].boxes.cls
         confidence_score = results[0].boxes.conf
+
         for bbox, cls, conf in zip(bounding_box, classes, confidence_score):
             detection = Detection2D()
             detection.bbox.center.x = float(bbox[0])
@@ -84,6 +95,7 @@ class TrackerNode:
             hypothesis.score = float(conf)
             detection.results.append(hypothesis)
             detections_msg.detections.append(detection)
+
         return detections_msg
     
 
@@ -101,60 +113,54 @@ class TrackerNode:
         return result_image_msg
 
 
+    def rgb_callback(self, rgb_msg):
+        try:
+            rgb_image = self.bridge.imgmsg_to_cv2(rgb_msg, desired_encoding='bgr8')
+            
+            if rgb_image is not None:
+                self.color_image = rgb_image
+        except Exception as e:
+            print("rgb error: ")
+            print(e)
+            # rospy.logerr("Error processing RGB image: %s", str(e))
+
+
+
+    def depth_callback(self, depth_msg):
+        try:
+            depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
+
+            if depth_image is not None:
+                self.depth_image = depth_image
+            else:
+                print("invalid depth img")
+                # rospy.logwarn("Invalid depth image received.")
+
+            # self.depth_image = depth_image
+
+        except Exception as e:
+            # rospy.logerr("Error processing depth image: %s", str(e))
+            print("depth error: ")
+            print(e)
+
 
     def capture_frames_from_webcam(self):
 
-        # Configure depth and color streams
-        pipeline = rs.pipeline()
-        config = rs.config()
-
-
-        # Get device product line for setting a supporting resolution
-        pipeline_wrapper = rs.pipeline_wrapper(pipeline)
-        pipeline_profile = config.resolve(pipeline_wrapper)
-        device = pipeline_profile.get_device()
-        device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-
-        found_rgb = False
-        for s in device.sensors:
-            if s.get_info(rs.camera_info.name) == 'RGB Camera':
-                found_rgb = True
-                break
-        if not found_rgb:
-            print("The demo requires Depth camera with Color sensor")
-            exit(0)
-
-        config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-
-        if device_product_line == 'L500':
-            config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
-        else:
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-
-        # Start streaming
-        pipeline.start(config)
-
-        try:
-            while not rospy.is_shutdown():
-
-                # Wait for a coherent pair of frames: depth and color
-                frames = pipeline.wait_for_frames()
-                depth_frame = frames.get_depth_frame()
-                color_frame = frames.get_color_frame()
-                if not depth_frame or not color_frame:
-                    continue
-
-                # Convert images to numpy arrays
-                depth_image = np.asanyarray(depth_frame.get_data())
-                color_image = np.asanyarray(color_frame.get_data())
-                # print(depth_image)
+        if self.color_image is not None and self.depth_image is not None:
+            
+            try:                
+                depth_image = np.asanyarray(self.depth_image)
+                color_image = np.asanyarray(self.color_image)
 
                 # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
                 depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
 
                 depth_colormap_dim = depth_colormap.shape
                 color_colormap_dim = color_image.shape
+
+
+                # Print shapes for debugging
+
 
                 # If depth and color resolutions are different, resize color image to match depth image for display
                 if depth_colormap_dim != color_colormap_dim:
@@ -163,69 +169,89 @@ class TrackerNode:
                 else:
                     images = np.hstack((color_image, depth_colormap))
 
+                # print("Depth Colormap Shape:", depth_colormap_dim)
+                # print("Color Image Shape:", color_colormap_dim)
+                
+                results = self.model.track(
+                    source=color_image,
+                    conf=self.conf_thres,
+                    iou=self.iou_thres,
+                    max_det=self.max_det,
+                    classes=self.classes,
+                    tracker=self.tracker,
+                    device=self.device,
+                    verbose=False,
+                    retina_masks=True,
+                )
 
-                # if color_image and depth_image:
-                try:
-                    results = self.model.track(
-                        source=color_image,
-                        conf=self.conf_thres,
-                        iou=self.iou_thres,
-                        max_det=self.max_det,
-                        classes=self.classes,
-                        tracker=self.tracker,
-                        device=self.device,
-                        verbose=False,
-                        retina_masks=True,
-                    )
 
+                yolo_result_msg = YoloResult()
 
-                    yolo_result_msg = YoloResult()
-
-                    if results is not None and len(results[0].boxes) > 0:
-                        names = y.names # y = yolo model
-                        d = []
-                        for r in results:
-                            for c in r.boxes.cls:
-                                index = int(c)
-                                if 0 <= index < len(names):
-                                    a = names[index]
-                                    d.append(a)
-                                else:
-                                    rospy.logwarn(f"Invalid index: {index} in names list.")                
-                    else:
-                        d = ['nan'] # no detection
+                if results is not None and len(results[0].boxes) > 0:
+                    names = y.names # y = yolo model
+                    self.detected_arrow = True
                     
-                    yolo_result_msg.detections = self.create_detections_array(results) # to save values in the center thing
+                    d = []
+                    for r in results:
+                        for c in r.boxes.cls:
+                            index = int(c)
+                            if 0 <= index < len(names):
+                                a = names[index]
+                                d.append(a)
+                            else:
+                                rospy.logwarn(f"Invalid index: {index} in names list.")                
+                else:
+                    self.detected_arrow = False
+                    d = ['nan'] # no detection
+                
+                yolo_result_msg.detections = self.create_detections_array(results) # to save values in the center thing
 
-                    # Show images
-                        
-                    cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-                    cv2.circle(images, (int(self.center_x), int(self.center_y)), 5, (0, 0, 255), -1)
-                    cv2.imshow('RealSense', images)
-                    cv2.waitKey(1)
+                # Show images
+
+                cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+                cv2.circle(images, (int(self.center_x), int(self.center_y)), 5, (0, 0, 255), -1)
+                cv2.imshow('RealSense', images)
+                cv2.waitKey(1)
 
 
-                    # depth calculations
-                    curr_depth = depth_image[int(self.center_x) - 1][int(self.center_y) - 1]
-                    d.append(str(int(curr_depth))) # ['Left', [1234]] or ['', [0]] --> at the subscriber's side, if direction is ''then don't even check the depth (would be giving depth of 0,0)
-                    
-                    self.direction_pub.publish(','.join(d))
-                    self.results_pub.publish(yolo_result_msg) ##### PUBLISHING DETECTIONS ARRAY HERE
+                # depth calculations
+                if(self.detected_arrow == True):
+                    curr_depth = depth_image[int(self.center_y), int(self.center_x)]
+                else:
+                    curr_depth = -1
+                # curr_depth = -1
+
+                d.append(str(int(curr_depth))) # ['Left', [1234]] or ['', [0]] --> at the subscriber's side, if direction is ''then don't even check the depth (would be giving depth of 0,0)
+                
+
+                self.direction_pub.publish(','.join(d))
+                self.results_pub.publish(yolo_result_msg) ##### PUBLISHING DETECTIONS ARRAY HERE
 
 
-                except Exception as e:
-                    rospy.logerr("Error: ",e)
+            except Exception as e:
+                print("Error: ")
+                print(e)
 
 
+            self.rgb_image = None
+            self.depth_image = None
 
-        finally:
-
-            # Stop streaming
-            cv2.destroyAllWindows()
-            pipeline.stop()
-
+        else:
+            self.center_x = 0
+            self.center_y = 0
+        
+    def main(self):
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            self.capture_frames_from_webcam()
+            # if(self.i%4==0):
+            #     print("capturing")
+            #     self.capture_frames_from_webcam()
+            #     rate.sleep()
+            # self.i+=1
+        rospy.spin()
 
 if __name__ == "__main__":
-    rospy.init_node("tracker_node")
-    node = TrackerNode()
-    node.capture_frames_from_webcam()
+    rospy.init_node("tracker_node", anonymous=True)
+    node = TrackerNode()    
+    node.main()

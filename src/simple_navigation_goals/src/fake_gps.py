@@ -7,8 +7,8 @@ import time
 
 def fake_gps_publisher():
     rospy.init_node('fake_gps_publisher', anonymous=True)
-    gps_publisher = rospy.Publisher('/fake_gps_data', PointStamped, queue_size=10)
-    rate = rospy.Rate(1) 
+    gps_publisher = rospy.Publisher('/gps_data', PointStamped, queue_size=10)
+    rate = rospy.Rate(1)
 
     latitude = 40.009
     longitude = 60.985
@@ -21,7 +21,7 @@ def fake_gps_publisher():
         gps_data.point.y = latitude
         gps_data.point.z = 0.0  
 
-        rospy.loginfo("Publishing Fake GPS Data - Latitude: {}, Longitude: {}".format(latitude, longitude))
+        # rospy.loginfo("Publishing Fake GPS Data - Latitude: {}, Longitude: {}".format(latitude, longitude))
         gps_publisher.publish(gps_data)
 
         latitude += 0.01
