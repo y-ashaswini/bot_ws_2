@@ -4,13 +4,12 @@
 import pickle
 import rospy
 from std_msgs.msg import String
-from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion, PointStamped
+from geometry_msgs.msg import Twist, PoseStamped, Point, Quaternion, PointStamped
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionGoal
 import time
 # from sensor_msgs.msg import NavSatFix
 # from scipy import stats
 import statistics
-from std_srvs.srv import Empty
 import actionlib
 import tf
 import math
@@ -227,16 +226,15 @@ def execute_rover_movement():
         direction_subscriber = rospy.Subscriber("/direction", String, callback)
         move_rover()
 
+        
+    elif p == 3:
         ## GOAL DETECTION MUTED FOR NOW
-        # elif p == 3:
-        #     # do something when goal
-        #     print("detected goal, stopping")
-
-
-
+        # do something when goal
+        print("detected goal, stopping")
     else:
         p = 2
         print("detected nothing")
+        move_rover()
 
 
 def get_current_orientation():
@@ -288,22 +286,24 @@ def movebase_goal(x, y, theta):
 
 
 def move_rover():
-
+    print("move rover")
+    global countdown_active
     current_theta = get_current_orientation()
 
-
-    if current_theta is not None:
+    if not countdown_active and current_theta is not None:
         move_distance = 0.6
         goal_x = math.cos(current_theta) * move_distance
         goal_y = math.sin(current_theta) * move_distance
 
         # Set the new goal
         movebase_goal(goal_x, goal_y, current_theta)
-
+        countdown_active = False
 
 
 def stop_rover():
     twist = Twist()
+    global countdown_active
+    countdown_active = False
     pub.publish(twist)
 
  
