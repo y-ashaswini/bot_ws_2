@@ -52,9 +52,9 @@ TebLocalPlannerROS:
  optimization_verbose: False
  penalty_epsilon: 0.3 # 0.1
  weight_max_vel_x: 50 # 3, 10
- weight_max_vel_theta: 10 # 1, 50
+ weight_max_vel_theta: 50 # 1
  weight_acc_lim_x: 10 # 2, 8
- weight_acc_lim_theta: 2 # 2, 10
+ weight_acc_lim_theta: 10 # 2
  weight_kinematics_nh: 1000
  weight_kinematics_forward_drive: 10 # 1
  weight_kinematics_turning_radius: 10 # 1

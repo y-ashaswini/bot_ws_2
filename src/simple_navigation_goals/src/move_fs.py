@@ -311,8 +311,8 @@ def move_rover():
         goal_x = current_x + math.cos(current_theta) * move_distance
         goal_y = current_y + math.sin(current_theta) * move_distance
         # Set the new goal
-        movebase_goal(goal_x, goal_y, current_theta)
-        countdown_active = False
+        # movebase_goal(goal_x, goal_y, current_theta)
+        # countdown_active = False
 
 
 def stop_rover():
