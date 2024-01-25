@@ -131,27 +131,6 @@ def callback(data):
 
 
 
-def start_countdown():
-    global counter, countdown_active
-    counter = 10
-    countdown_active = True
-    publish_countdown()
-
-
-def publish_countdown():
-    global counter
-    twist = Twist()
-
-    for counter in range(10, 0, -1):
-        twist.linear.x = counter
-        countdown_pub.publish(twist)
-        rospy.sleep(1)
-
-    # Stop the countdown by publishing an empty Twist message
-    countdown_pub.publish(Twist())
-
-
-
 def gps_sub_callback(data):
     # print(data)
     s = str(data.point.x)+" "+str(data.point.y)
@@ -181,7 +160,7 @@ def stop_move_base():
 
 def execute_rover_movement():
     print("executing movement...")
-    global p, countdown_active
+    global p, countdown_active, current_dir, curr_time
 
     if p == 0 or p == 1:
         # left or right
@@ -214,10 +193,36 @@ def execute_rover_movement():
             # left turn
             print("detected left, executing left turn")
             twist_turn.angular.z = 1.0
+            if(current_axis == "x" and current_dir == "f"):
+                current_axis = "y"
+                current_dir = "b"
+            elif(current_axis == "x" and current_dir == "b"):
+                current_axis = "y"
+                current_dir = "f"
+            elif(current_axis == "y" and current_dir == "f"):
+                current_axis = "x"
+                current_dir = "f"
+            elif(current_axis == "y" and current_dir == "b"):
+                current_axis = "x"
+                current_dir = "b"
+
+
         
         elif p == 1 and not countdown_active:
             # right turn
             print("detected right, executing right turn")
+            if(current_axis == "x" and current_dir == "f"):
+                current_axis = "y"
+                current_dir = "f"
+            elif(current_axis == "x" and current_dir == "b"):
+                current_axis = "y"
+                current_dir = "b"
+            elif(current_axis == "y" and current_dir == "f"):
+                current_axis = "x"
+                current_dir = "b"
+            elif(current_axis == "y" and current_dir == "b"):
+                current_axis = "x"
+                current_dir = "f"
             twist_turn.angular.z = -1.0
 
         countdown_active = True # rotation in motion
@@ -279,7 +284,27 @@ def get_current_orientation():
         return None
 
 
-def movebase_goal(x, y, theta):
+def movebase_goal():
+    rospy.init_node('goal_publisher', anonymous=True)
+    goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)
+
+    goal_msg = PoseStamped()
+    goal_msg.header.stamp = rospy.Time.now()
+    goal_msg.header.frame_id = "map"
+    goal_msg.pose.position.x = 1.0
+    goal_msg.pose.position.y = 0.0
+    goal_msg.pose.position.z = 0.0
+    goal_msg.pose.orientation.w = 1.0
+
+    rate = rospy.Rate(1)  # 1 Hz
+
+    while not rospy.is_shutdown():
+        goal_pub.publish(goal_msg)
+        rospy.loginfo("Goal published: %s", goal_msg)
+
+        rate.sleep()
+
+def d_movebase_goal(x, y, theta):
     # Create a MoveBase client
     move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
     move_base_client.wait_for_server()
@@ -298,34 +323,39 @@ def movebase_goal(x, y, theta):
 
     # Send the goal and wait for result
     move_base_client.send_goal(goal)
-    move_base_client.wait_for_result()
+    move_base_client.wait_for_result(rospy.Duration(10.0))
 
     # Print the result
     if move_base_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
         rospy.loginfo("Goal reached successfully!")
-        rospy.sleep(5)
+        rospy.sleep(1)
     else:
         rospy.loginfo("Failed to reach the goal.")
 
 
+new_x = 1.0
+new_y = 0.0
+current_axis = "x"
+current_dir = "f"
+
+last_arrow= "nan"
 
 def move_rover():
+    global new_x, new_y, current_axis, current_dir
     print("move rover")
-    global countdown_active
-    current_theta = get_current_orientation()
-    r = get_current_orientation()
-    [current_x, current_y, current_theta] = [float(i)/1000 for i in r.split(" ")]
-    
-    if current_theta is not None:
-        move_distance = 1.0
-        print("curr pos: ")
-        print(current_x, current_y)
-        goal_x = current_x + math.cos(current_theta) * move_distance
-        goal_y = current_y + math.sin(current_theta) * move_distance
-
-        # Set the new goal
-        movebase_goal(goal_x, goal_y, current_theta)
-        # countdown_active = False
+    # Set the new goal
+    if(current_axis == "x"):
+        if(current_dir == "f"):
+            new_x +=1.0
+        else:
+            new_x -=1.0
+    else:
+        if(current_dir == "f"):
+            new_y +=1.0
+        else:
+            new_y -=1.0
+    movebase_goal(new_x, new_y, 1.0)
+    # countdown_active = False
 
 
 def stop_rover():
@@ -333,7 +363,6 @@ def stop_rover():
     global countdown_active
     countdown_active = False
     pub.publish(twist)
-
  
 
 def init_rotate():
