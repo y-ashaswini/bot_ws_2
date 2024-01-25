@@ -3,16 +3,15 @@
 
 import pickle
 import rospy
-from std_msgs.msg import String
-from geometry_msgs.msg import Twist, PoseStamped, Point, Quaternion, PointStamped
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionGoal
 import time
-# from sensor_msgs.msg import NavSatFix
-# from scipy import stats
 import statistics
 import actionlib
 import tf
 import math
+from std_msgs.msg import String
+from geometry_msgs.msg import Twist, PoseStamped, Point, Quaternion, PointStamped
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionGoal
+from sensor_msgs.msg import NavSatFix
 
 
 directions = []
@@ -33,12 +32,18 @@ start_time = 0
 curr_time = start_time
 time_interval = 2 # seconds
 
+ultimate_time = False
+ultimate_start_time = 0
+first = 0
+ultimate_curr_time = ultimate_start_time
+
+
 gps_file_path = '/home/alexii/robotics/bot_workspace/gps_coordinates.txt'
 
 
 def callback(data):
     # print("in callback")
-    global directions, depths, p, counter, countdown_active
+    global directions, depths, p, counter, countdown_active, ultimate_curr_time, ultimate_start_time, ultimate_time, first
 
     if countdown_active:
         # Ignore arrow detection during countdown
@@ -48,6 +53,16 @@ def callback(data):
 
     c = rospy.Time.now()
     curr_time = c.secs
+
+    if(first == 0):
+        first = 1
+        ultimate_start_time = curr_time
+    ultimate_curr_time = c.secs
+    
+    if(ultimate_curr_time - ultimate_start_time >= 1200.0):
+        ultimate_time = True
+        # enable goal detection 
+
 
 
     # print("directions now: ")
@@ -83,9 +98,10 @@ def callback(data):
         d = 0
         depths = [i for i in depths if i>0]
 
-        if(len(depths)==0):
+        if(len(depths)==0 or p == 2):
             p=2
             print("nothing detected")
+            execute_rover_movement()
         else:
             for i in depths:
                 d+=i
@@ -96,47 +112,21 @@ def callback(data):
 
             if mode_value == 'Left':
                 p = 0
-                # start_countdown()
             elif mode_value == 'Right':
                 p = 1
             elif mode_value == 'barrel - v1 cone barrel relabel': # needs to be edited. current algorithm shows barrel very often
                 p = 3
-            else:
-                p = 2 # nan, do nothing
 
             depths = []
             directions = []
             
 
-
             # unsubscribe temporarily from movebase?? overrride movebase path ???
             # or just stop listening to cmd_vel commands from there???
-            
-            if(d <= 1500 and d > 0 ):
+                
+            if((p == 1 or p == 0 or p == 3) and d <= 1500 and d > 0):
                 # ONLY DO THIS IF THE ROVER IS WITHIN THE RADIUS !!
                 execute_rover_movement()
-
-
-
-
-def start_countdown():
-    global counter, countdown_active
-    counter = 10
-    countdown_active = True
-    publish_countdown()
-
-
-def publish_countdown():
-    global counter
-    twist = Twist()
-
-    for counter in range(10, 0, -1):
-        twist.linear.x = counter
-        countdown_pub.publish(twist)
-        rospy.sleep(1)
-
-    # Stop the countdown by publishing an empty Twist message
-    countdown_pub.publish(Twist())
 
 
 
@@ -159,7 +149,7 @@ def save_gps_coordinate():
     
 
 def stop_move_base():
-    cancel_goal_publisher = rospy.Publisher('move_base_simple/cancel', MoveBaseActionGoal, queue_size=10)
+    cancel_goal_publisher = rospy.Publisher('/move_base_simple/cancel', MoveBaseActionGoal, queue_size=10)
     cancel_goal_msg = MoveBaseActionGoal()
     cancel_goal_msg.goal_id.stamp = rospy.Time.now()
     cancel_goal_msg.goal_id.id = ""
@@ -198,12 +188,12 @@ def execute_rover_movement():
         twist_turn = Twist()
 
 
-        if p == 0 and not countdown_active:
+        if (p == 0 and not countdown_active):
             # left turn
             print("detected left, executing left turn")
             twist_turn.angular.z = 1.0
         
-        elif p == 1 and not countdown_active:
+        elif (p == 1 and not countdown_active):
             # right turn
             print("detected right, executing right turn")
             twist_turn.angular.z = -1.0
@@ -212,7 +202,7 @@ def execute_rover_movement():
         turn_duration = rospy.Duration.from_sec(2)  # 90 degrees in radians
         start_time_turn = time.time()
 
-        while time.time() - start_time_turn < turn_duration.to_sec():
+        while time.time() - start_time_turn < turn_duration.to_sec(2):
             pub.publish(twist_turn)
             rate.sleep()
 
@@ -223,17 +213,18 @@ def execute_rover_movement():
         p = 2 # set it as 'nan' again, until next detection
 
 
+        # move_rover()
         direction_subscriber = rospy.Subscriber("/direction", String, callback)
-        move_rover()
 
         
-    elif p == 3:
+    elif p == 3 and ultimate_time:
         ## GOAL DETECTION MUTED FOR NOW
         # do something when goal
         print("detected goal, stopping")
+        stop_rover()
     else:
-        p = 2
-        print("detected nothing")
+        # p = 2
+        print("detected nothing, moving forward")
         move_rover()
 
 
@@ -241,15 +232,17 @@ def get_current_orientation():
     try:
         # Wait for the transform between "base_link" and "map"
         listener = tf.TransformListener()
-        listener.waitForTransform("odom", "robot_footprint", rospy.Time(), rospy.Duration(4.0))
+        listener.waitForTransform("robot_footprint", "map", rospy.Time(), rospy.Duration(4.0))
 
         # Get the current transformation
-        (trans, rot) = listener.lookupTransform("odom", "robot_footprint", rospy.Time(0))
+        (trans, rot) = listener.lookupTransform("robot_footprint", "map", rospy.Time(0))
+        current_x = trans[0]
+        current_y = trans[1]
 
         # Convert quaternion to Euler angles
         roll, pitch, yaw = tf.transformations.euler_from_quaternion(rot)
 
-        return yaw
+        return str(int(current_x*1000)) + " " + str(int(current_y*1000)) + " " + str(int(yaw*1000))
 
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
         rospy.logwarn("Failed to get current orientation.")
@@ -260,6 +253,10 @@ def movebase_goal(x, y, theta):
     # Create a MoveBase client
     move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
     move_base_client.wait_for_server()
+
+    # Cancel goal if already present
+    if(move_base_client.get_state() == actionlib.GoalStatus.ACTIVE or move_base_client.get_state() == actionlib.GoalStatus.PENDING):
+        move_base_client.cancel_goal()
 
     # Create a MoveBaseGoal
     goal = MoveBaseGoal()
@@ -275,26 +272,44 @@ def movebase_goal(x, y, theta):
 
     # Send the goal and wait for result
     move_base_client.send_goal(goal)
-    move_base_client.wait_for_result()
+
+    # set timer (?)
+    result = move_base_client.wait_for_result(rospy.Duration(5.0))
+
+    if not result:
+        move_base_client.cancel_goal()
+
 
     # Print the result
     if move_base_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
         rospy.loginfo("Goal reached successfully!")
     else:
         rospy.loginfo("Failed to reach the goal.")
+        move_base_client.cancel_goal()
+    
+    rospy.sleep(2)
+
+    try:
+        move_base_client.cancel_goal()
+    except Exception as e:
+        print("can't cancel goal")
+        print(e)
+
 
 
 
 def move_rover():
-    print("move rover")
+    print("running move rover")
     global countdown_active
-    current_theta = get_current_orientation()
-
-    if not countdown_active and current_theta is not None:
-        move_distance = 0.6
-        goal_x = math.cos(current_theta) * move_distance
-        goal_y = math.sin(current_theta) * move_distance
-
+    r = get_current_orientation()
+    [current_x, current_y, current_theta] = [float(i)/1000 for i in r.split(" ")]
+    
+    if current_theta is not None:
+        move_distance = 1.0
+        print("curr pos: ")
+        print(current_x, current_y)
+        goal_x = current_x + math.cos(current_theta) * move_distance
+        goal_y = current_y + math.sin(current_theta) * move_distance
         # Set the new goal
         movebase_goal(goal_x, goal_y, current_theta)
         countdown_active = False
@@ -306,10 +321,40 @@ def stop_rover():
     countdown_active = False
     pub.publish(twist)
 
- 
+
+def init_rotate():
+    twist = Twist()
+    rate = rospy.Rate(10)
+    twist.angular.z = 1.0
+    turn_duration = rospy.Duration.from_sec(2)  # 2 (2.5) seconds = 90 degrees in radians
+    # so 360 degrees: 8 (10) seconds
+
+    start_time_turn = time.time()
+
+    while time.time() - start_time_turn < turn_duration.to_sec():
+        pub.publish(twist)
+        rate.sleep()
+
+    twist.angular.z = -1.0
+    turn_duration = rospy.Duration.from_sec(4)  # 90 degrees in radians
+    start_time_turn = time.time()
+
+    while time.time() - start_time_turn < turn_duration.to_sec():
+        pub.publish(twist)
+        rate.sleep()
+    twist.angular.z = 1.0
+    turn_duration = rospy.Duration.from_sec(2)  # 90 degrees in radians
+    start_time_turn = time.time()
+
+    while time.time() - start_time_turn < turn_duration.to_sec():
+        pub.publish(twist)
+        rate.sleep()
+
+    stop_rover()
+    rospy.sleep(2)
+
 
 def list_switcher_node():
-
     global direction_subscriber
     rospy.init_node("list_switcher_node")
 
@@ -317,7 +362,9 @@ def list_switcher_node():
     s = rospy.Time.now()
     start_time = s.secs
     curr_time = start_time
-    move_rover()
+
+
+    init_rotate()
     direction_subscriber = rospy.Subscriber("/direction", String, callback)
     rospy.spin()
 
